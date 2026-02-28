@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Export Comments – Social Media Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sidebar: '#f3f0ff',
+            'purple-brand': '#7c3aed',
+            'purple-dark': '#4c1d95',
+            'purple-header': '#5b21b6',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
+
+    /* Sidebar active link */
+    .nav-link.active {
+      background: #ede9fe;
+      color: #5b21b6;
+      font-weight: 600;
+    }
+    .nav-link.active svg { stroke: #5b21b6; }
+    .nav-link { transition: background 0.15s, color 0.15s; }
+    .nav-link:hover:not(.active) { background: #f5f3ff; }
+
+    /* Table header sort icon */
+    th .sort-icon { opacity: 0.6; font-size: 10px; margin-left: 4px; }
+
+    /* Modal overlay */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-overlay.open { display: flex; }
+
+    /* Tag badge */
+    .badge-replies {
+      background: #ddd6fe;
+      color: #5b21b6;
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .badge-stopped {
+      background: #f1f5f9;
+      color: #64748b;
+      font-size: 12px;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    /* Subtle row hover */
+    tbody tr:hover { background: #faf5ff; }
+
+    /* URL input bar */
+    #url-input-bar { border-bottom: 1px solid #ede9fe; }
+    #url-input:focus { outline: none; box-shadow: 0 0 0 3px #ede9fe; }
+    #url-input.error { border-color: #fca5a5; box-shadow: 0 0 0 3px #fee2e2; }
+    #url-input.success { border-color: #86efac; box-shadow: 0 0 0 3px #dcfce7; }
+    .url-status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+    .url-status-dot.idle    { background:#cbd5e1; }
+    .url-status-dot.loading { background:#a78bfa; animation: pulse 1s infinite; }
+    .url-status-dot.ok      { background:#4ade80; }
+    .url-status-dot.err     { background:#f87171; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Column tag in modal */
+    .col-tag {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      border-radius: 8px;
+      padding: 7px 12px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 h-screen overflow-hidden flex flex-col">
+
+<!-- ══════════════════════════════════════════
+     APP SHELL
+══════════════════════════════════════════ -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="flex flex-col w-44 min-w-[11rem] bg-[#f3f0ff] border-r border-purple-100 py-5 px-3 gap-1 shrink-0">
+
+    <!-- Logo / Brand -->
+    <div class="flex items-center gap-2 px-2 mb-5">
+      <div class="w-7 h-7 rounded-lg bg-purple-600 flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+      </div>
+      <span class="text-sm font-bold text-purple-900 leading-tight">Exporter<span class="text-purple-400">24</span></span>
+    </div>
+
+    <!-- Nav: Comments -->
+    <a href="#" class="nav-link active flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-slate-600" id="nav-comments" onclick="switchTab('comments', event)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-6 4h4M5 4h14a2 2 0 012 2v10a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2z"/>
+      </svg>
+      Comments
+    </a>
+
+    <!-- Nav: History -->
+    <a href="#" class="nav-link flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-slate-600" id="nav-history" onclick="switchTab('history', event)">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      History
+    </a>
+
+    <div class="flex-1"></div>
+
+    <!-- Doesn't work? -->
+    <a href="#" class="nav-link flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs text-slate-400">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/>
+      </svg>
+      Doesn't work?
+    </a>
+
+  </aside>
+
+  <!-- ── MAIN AREA ── -->
+  <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
+
+    <!-- ── API KEY BAR ── -->
+    <div id="api-key-bar" class="bg-amber-50 border-b border-amber-200 px-5 py-2 flex items-center gap-3 shrink-0">
+      <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+      </svg>
+      <span class="text-xs font-semibold text-amber-700 shrink-0">YouTube API Key:</span>
+      <div class="flex-1 relative">
+        <input
+          id="api-key-input"
+          type="password"
+          placeholder="AIza... (Get one from console.cloud.google.com)"
+          class="w-full text-xs border border-amber-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
+          oninput="onApiKeyInput()"
+        />
+      </div>
+      <button onclick="saveApiKey()" class="shrink-0 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg transition-colors">Save</button>
+      <span id="api-key-status" class="text-xs text-amber-600 shrink-0 hidden"></span>
+      <button onclick="toggleApiKeyBar()" class="shrink-0 text-amber-400 hover:text-amber-600 transition-colors" title="Minimize">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- ── URL INPUT BAR ── -->
+    <div id="url-input-bar" class="bg-white px-5 py-2.5 flex items-center gap-3 shrink-0">
+      <!-- YouTube icon -->
+      <div class="shrink-0 w-7 h-7 flex items-center justify-center">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="#ff0000">
+          <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+      </div>
+
+      <!-- Input field -->
+      <div class="flex-1 relative">
+        <input
+          id="url-input"
+          type="text"
+          placeholder="Paste YouTube video URL here…  e.g. https://www.youtube.com/watch?v=XXXXXXX"
+          class="w-full text-sm border border-slate-200 rounded-xl px-4 py-2 pr-10 text-slate-700 bg-slate-50 transition-all duration-150"
+          onkeydown="if(event.key==='Enter') loadVideoFromUrl()"
+          oninput="resetUrlState()"
+        />
+        <!-- Clear button -->
+        <button
+          id="url-clear-btn"
+          onclick="clearUrl()"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors hidden"
+          title="Clear"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Status dot -->
+      <span id="url-dot" class="url-status-dot idle shrink-0" title="Idle"></span>
+
+      <!-- Load button -->
+      <button
+        onclick="loadVideoFromUrl()"
+        id="url-load-btn"
+        class="shrink-0 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+        </svg>
+        Load
+      </button>
+    </div>
+
+    <!-- ── HEADER ── -->
+    <header class="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-4 shrink-0">
+
+      <!-- Thumbnail -->
+      <div id="video-thumb-wrap" class="w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-orange-400 to-red-500 shrink-0 flex items-center justify-center shadow-sm">
+        <img id="video-thumb-img" src="" alt="thumb" class="w-full h-full object-cover hidden" />
+        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7L8 5z"/>
+        </svg>
+      </div>
+
+      <!-- Video info -->
+      <div class="flex-1 min-w-0">
+        <h1 id="video-title" class="text-sm font-semibold text-slate-800 truncate">
+          Cheb Khaled x Mami x Hasni x Nasro – Old Raï Nostalgic Mix (1970s Jazz Soul Cover)
+        </h1>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span id="video-channel" class="text-xs text-purple-600 font-medium">Nostalgia Radio</span>
+          <span class="badge-replies">REPLIES INCLUDED</span>
+        </div>
+      </div>
+
+      <!-- Status + Resume -->
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="status-badge" class="badge-stopped">Stopped</span>
+
+        <!-- Resume: load next page -->
+        <button
+          id="resume-btn"
+          class="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-40"
+          onclick="handleResume()"
+          disabled
+          title="Load next 100 comments"
+        >
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5z"/></svg>
+          Resume
+        </button>
+
+        <!-- Fetch All: auto-loop all pages + all replies -->
+        <button
+          id="fetch-all-btn"
+          class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-40"
+          onclick="handleFetchAll()"
+          disabled
+          title="Automatically fetch ALL comments and replies"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Fetch All
+        </button>
+
+        <!-- progress label -->
+        <span id="fetch-progress" class="text-xs text-slate-500 hidden"></span>
+
+        <!-- API Key toggle when bar is hidden -->
+        <button id="api-key-toggle-btn" onclick="toggleApiKeyBar()" class="hidden text-amber-500 hover:text-amber-600 transition-colors" title="Set API Key">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── TABLE AREA ── -->
+    <main class="flex-1 overflow-auto bg-white" id="main-content">
+
+      <!-- Comments Tab -->
+      <div id="tab-comments">
+
+        <!-- ── AUTHOR SEARCH PANEL ── -->
+        <div id="author-search-panel" class="border-b border-slate-100 bg-slate-50">
+          <!-- Toggle bar -->
+          <button
+            onclick="toggleSearchPanel()"
+            class="w-full flex items-center gap-2 px-5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors text-left"
+          >
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
+            </svg>
+            Search Authors
+            <svg id="search-panel-chevron" class="w-3.5 h-3.5 ml-auto transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          <!-- Panel body -->
+          <div id="search-panel-body" class="hidden px-5 pb-4 pt-1">
+            <div class="flex gap-3">
+              <!-- Textarea -->
+              <div class="flex-1">
+                <label class="block text-xs font-semibold text-slate-500 mb-1.5">Paste author names <span class="font-normal text-slate-400">(one per line or comma-separated)</span></label>
+                <textarea
+                  id="author-search-input"
+                  rows="4"
+                  placeholder="Ahmed K.&#10;Fatima B.&#10;Youssef R."
+                  class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 bg-white text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 transition-all font-mono"
+                ></textarea>
+                <div class="flex gap-2 mt-2">
+                  <button
+                    onclick="runAuthorSearch()"
+                    class="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    Search
+                  </button>
+                  <button
+                    onclick="clearAuthorSearch()"
+                    class="flex items-center gap-1.5 bg-slate-200 hover:bg-slate-300 text-slate-600 text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <span id="search-summary" class="ml-2 text-xs self-center text-slate-500 hidden"></span>
+                </div>
+              </div>
+
+              <!-- Results badge list -->
+              <div id="search-results-col" class="w-64 hidden">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs font-semibold text-slate-500">Results</span>
+                  <div class="flex gap-2 text-xs">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block"></span>Found</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-400 inline-block"></span>Not found</span>
+                  </div>
+                </div>
+                <div id="search-results-list" class="flex flex-col gap-1 max-h-36 overflow-y-auto pr-1">
+                  <!-- populated by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /AUTHOR SEARCH PANEL -->
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse" id="data-table">
+            <thead>
+              <tr id="table-head-row">
+                <!-- Generated by JS -->
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Generated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state -->
+        <div id="empty-state" class="flex flex-col items-center justify-center py-24 text-slate-400">
+          <svg class="w-12 h-12 mb-4 text-purple-200" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293L9.293 13.293A1 1 0 008.586 13H6"/>
+          </svg>
+          <p class="font-medium text-slate-500">No comments to display.</p>
+          <p class="text-xs mt-1 text-slate-400">Press <span class="font-semibold text-purple-500">Resume</span> to start fetching comments.</p>
+        </div>
+      </div>
+
+      <!-- History Tab -->
+      <div id="tab-history" class="hidden flex flex-col items-center justify-center py-24 text-slate-400">
+        <svg class="w-12 h-12 mb-4 text-purple-200" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="font-medium text-slate-500">No history yet.</p>
+        <p class="text-xs mt-1">Previously exported sessions will appear here.</p>
+      </div>
+
+    </main>
+
+    <!-- ── FOOTER ── -->
+    <footer class="bg-white border-t border-slate-200 px-5 py-2.5 flex items-center gap-3 shrink-0 text-sm">
+
+      <!-- Total -->
+      <span class="text-slate-500 text-xs font-medium shrink-0">
+        Total: <span id="total-count" class="text-slate-700 font-bold">30</span>
+      </span>
+
+      <div class="flex-1"></div>
+
+      <!-- Configure Columns -->
+      <button
+        onclick="openModal()"
+        class="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Configure Columns
+      </button>
+
+      <!-- Export CSV -->
+      <button
+        onclick="exportCSV()"
+        class="flex items-center gap-1.5 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 px-4 py-1.5 rounded-lg transition-colors shadow-sm"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Export CSV
+      </button>
+
+      <!-- Pagination -->
+      <div class="flex items-center gap-1 shrink-0">
+        <button
+          onclick="changePage(-1)"
+          class="px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors disabled:opacity-40"
+          id="btn-prev"
+        >Previous</button>
+
+        <span class="text-xs font-semibold text-slate-700 px-2" id="page-indicator">1 / 1</span>
+
+        <button
+          onclick="changePage(1)"
+          class="px-2.5 py-1.5 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors"
+          id="btn-next"
+        >Next</button>
+      </div>
+
+    </footer>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     CONFIGURE COLUMNS MODAL
+══════════════════════════════════════════ -->
+<div id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-base font-bold text-slate-800">Configure Columns</h2>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="px-6 py-4 max-h-[60vh] overflow-y-auto">
+
+      <!-- Add column dropdown -->
+      <div class="mb-5">
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Add Column</label>
+        <div class="flex gap-2">
+          <select id="add-col-select" class="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400">
+            <!-- Populated by JS -->
+          </select>
+          <button
+            onclick="addColumnFromModal()"
+            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors"
+          >Add</button>
+        </div>
+      </div>
+
+      <!-- Current columns list -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Current Columns</label>
+        <div id="modal-col-list">
+          <!-- Populated by JS -->
+        </div>
+        <p id="no-cols-msg" class="text-sm text-slate-400 text-center py-4 hidden">No columns selected.</p>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+      <button
+        onclick="closeModal()"
+        class="px-5 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+      >Cancel</button>
+      <button
+        onclick="saveColumns()"
+        class="px-5 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-sm"
+      >Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     TOAST NOTIFICATION
+══════════════════════════════════════════ -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 transition-all duration-300 opacity-0 translate-y-2 pointer-events-none">
+  <div class="bg-slate-800 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-xl flex items-center gap-2">
+    <svg class="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+    </svg>
+    <span id="toast-msg"></span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════ -->
+<script>
+'use strict';
+/* ════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════ */
+const ALL_COLUMNS = [
+  { key: 'index',          label: '#' },
+  { key: 'authorAvatar',   label: 'Avatar' },
+  { key: 'authorName',     label: 'Author Name' },
+  { key: 'authorChannel',  label: 'Author Channel' },
+  { key: 'content',        label: 'Content' },
+  { key: 'likes',          label: 'Likes' },
+  { key: 'replies',        label: 'Replies' },
+  { key: 'published',      label: 'Published' },
+  { key: 'isReply',        label: 'Is Reply' },
+  { key: 'parentId',       label: 'Parent Comment ID' },
+  { key: 'commentId',      label: 'Comment ID' },
+];
+
+const ROWS_PER_PAGE = 50;
+const YT_API = 'https://www.googleapis.com/youtube/v3';
+
+/* ════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════ */
+let activeColumns      = ['index','authorName','content','likes','replies','published','isReply'];
+let modalColumns       = [];
+let COMMENTS_DATA      = [];
+let sortKey            = null;
+let sortDir            = 1;
+let currentPage        = 1;
+let currentVideoId     = null;
+let nextPageToken      = null;
+let isFetching         = false;
+let channelId          = null;
+let highlightedAuthors = new Set();
+let searchActive       = false;
+
+/* ════════════════════════════════════════════
+   API KEY  (localStorage)
+════════════════════════════════════════════ */
+function getApiKey() {
+  return localStorage.getItem('yt_api_key') || '';
+}
+function saveApiKey() {
+  const v = document.getElementById('api-key-input').value.trim();
+  if (!v) { showToast('⚠️ Please enter your API key.'); return; }
+  localStorage.setItem('yt_api_key', v);
+  const s = document.getElementById('api-key-status');
+  s.textContent = '✓ Saved';
+  s.classList.remove('hidden');
+  setTimeout(() => s.classList.add('hidden'), 2500);
+  showToast('✅ API key saved.');
+}
+function onApiKeyInput() {
+  document.getElementById('api-key-status').classList.add('hidden');
+}
+function toggleApiKeyBar() {
+  const bar  = document.getElementById('api-key-bar');
+  const btn  = document.getElementById('api-key-toggle-btn');
+  const hidden = bar.style.display === 'none';
+  bar.style.display  = hidden ? '' : 'none';
+  btn.classList.toggle('hidden', hidden);
+}
+
+/* ════════════════════════════════════════════
+   RENDER TABLE
+════════════════════════════════════════════ */
+function renderTable() {
+  const thead     = document.getElementById('table-head-row');
+  const tbody     = document.getElementById('table-body');
+  const emptyState = document.getElementById('empty-state');
+
+  thead.innerHTML = activeColumns.map(key => {
+    const col   = ALL_COLUMNS.find(c => c.key === key);
+    const arrow = sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ▽';
+    return `<th class="text-left text-xs font-semibold text-purple-900 bg-purple-50 border-b border-purple-100 px-4 py-3 whitespace-nowrap cursor-pointer select-none hover:bg-purple-100 transition-colors" onclick="sortBy('${key}')">${col ? col.label : key}<span class="sort-icon">${arrow}</span></th>`;
+  }).join('');
+
+  let data = [...COMMENTS_DATA];
+  if (sortKey) {
+    data.sort((a, b) => {
+      const av = (a[sortKey] ?? '').toString().toLowerCase();
+      const bv = (b[sortKey] ?? '').toString().toLowerCase();
+      const nA = parseFloat(av), nB = parseFloat(bv);
+      if (!isNaN(nA) && !isNaN(nB)) return (nA - nB) * sortDir;
+      return av < bv ? -sortDir : av > bv ? sortDir : 0;
+    });
+  }
+
+  const total      = data.length;
+  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start    = (currentPage - 1) * ROWS_PER_PAGE;
+  const pageData = data.slice(start, start + ROWS_PER_PAGE);
+
+  document.getElementById('total-count').textContent     = total;
+  document.getElementById('page-indicator').textContent  = `${currentPage} / ${totalPages}`;
+  document.getElementById('btn-prev').disabled           = currentPage <= 1;
+  document.getElementById('btn-next').disabled           = currentPage >= totalPages;
+
+  if (pageData.length === 0) {
+    tbody.innerHTML = '';
+    emptyState.classList.remove('hidden');
+  } else {
+    emptyState.classList.add('hidden');
+    tbody.innerHTML = pageData.map(row => {
+
+      // Determine row highlight based on author search
+      const authorLower = (row.authorName || '').toLowerCase().trim();
+      let rowClass = 'border-b border-slate-100 transition-colors';
+      if (searchActive && highlightedAuthors.size > 0) {
+        if (highlightedAuthors.has(authorLower)) {
+          rowClass = 'border-b border-blue-200 bg-blue-50 transition-colors';
+        } else {
+          rowClass = 'border-b border-slate-100 opacity-40 transition-colors';
+        }
+      }
+
+      return `
+      <tr class="${rowClass}">
+        ${activeColumns.map(key => {
+          let val = row[key] ?? '—';
+          if (key === 'index')        val = `<span class="font-mono text-purple-400">${val}</span>`;
+          if (key === 'authorAvatar') val = val !== '—'
+            ? `<img src="${val}" class="w-7 h-7 rounded-full object-cover" onerror="this.style.display='none'" />`
+            : '—';
+          if (key === 'authorName')   val = `<span class="font-medium text-slate-800">${escHtml(val)}</span>`;
+          if (key === 'authorChannel')val = val !== '—'
+            ? `<a href="https://youtube.com/channel/${escHtml(val)}" target="_blank" class="text-purple-500 hover:underline text-xs">${escHtml(val).slice(0,20)}</a>`
+            : '—';
+          if (key === 'content')      val = `<span class="block max-w-xs truncate" title="${escAttr(val)}">${escHtml(val)}</span>`;
+          if (key === 'likes')        val = val !== '—' ? `<span class="font-semibold text-purple-700">${val}</span>` : '—';
+          if (key === 'replies')      val = val !== '—' && val !== '0' ? `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">${val}</span>` : `<span class="text-slate-400">${val}</span>`;
+          if (key === 'isReply') {
+            const yes = val === 'Yes';
+            val = `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ${yes ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}">${val}</span>`;
+          }
+          if (key === 'published' && val !== '—') {
+            val = new Date(val).toLocaleDateString('en-GB',{year:'numeric',month:'short',day:'numeric'});
+          }
+          if (key === 'commentId' || key === 'parentId') {
+            val = val !== '—' ? `<span class="font-mono text-xs text-slate-400 truncate block max-w-[120px]">${escHtml(val)}</span>` : '—';
+          }
+          return `<td class="px-4 py-2.5 text-slate-700 text-xs whitespace-nowrap">${val}</td>`;
+        }).join('')}
+      </tr>`;
+    }).join('');
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ════════════════════════════════════════════
+   AUTHOR SEARCH
+════════════════════════════════════════════ */
+function toggleSearchPanel() {
+  const body    = document.getElementById('search-panel-body');
+  const chevron = document.getElementById('search-panel-chevron');
+  const hidden  = body.classList.toggle('hidden');
+  chevron.style.transform = hidden ? '' : 'rotate(180deg)';
+}
+
+function runAuthorSearch() {
+  const raw = document.getElementById('author-search-input').value;
+  if (!raw.trim()) { clearAuthorSearch(); return; }
+
+  // Parse: split by newline OR comma, trim, lowercase, remove empty
+  const inputNames = raw
+    .split(/[\n,]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (!inputNames.length) { clearAuthorSearch(); return; }
+
+  // Build a set of all author names in the data (lowercase)
+  const allAuthors = new Set(
+    COMMENTS_DATA.map(r => (r.authorName || '').toLowerCase().trim())
+  );
+
+  const found    = [];
+  const notFound = [];
+
+  for (const name of inputNames) {
+    const key = name.toLowerCase();
+    if (allAuthors.has(key)) {
+      found.push(name);
+    } else {
+      notFound.push(name);
+    }
+  }
+
+  // Update highlight state
+  highlightedAuthors = new Set(found.map(n => n.toLowerCase()));
+  searchActive = true;
+
+  // Re-render table with highlights
+  renderTable();
+
+  // Show summary
+  const summary = document.getElementById('search-summary');
+  summary.innerHTML = `<span class="text-blue-600 font-semibold">${found.length} found</span> &bull; <span class="text-red-500 font-semibold">${notFound.length} not found</span>`;
+  summary.classList.remove('hidden');
+
+  // Show results column
+  const col  = document.getElementById('search-results-col');
+  const list = document.getElementById('search-results-list');
+  col.classList.remove('hidden');
+
+  list.innerHTML = [
+    ...found.map(n => `
+      <div class="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+        <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+        <span class="text-xs font-medium text-blue-800 truncate flex-1" title="${escAttr(n)}">${escHtml(n)}</span>
+        <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>`),
+    ...notFound.map(n => `
+      <div class="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+        <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+        <span class="text-xs font-medium text-red-700 truncate flex-1" title="${escAttr(n)}">${escHtml(n)}</span>
+        <svg class="w-3.5 h-3.5 text-red-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>`),
+  ].join('');
+
+  if (COMMENTS_DATA.length === 0) {
+    showToast('⚠️ No comments loaded yet. Load a video first.');
+  } else {
+    showToast(`🔍 ${found.length} found • ${notFound.length} not found`);
+  }
+}
+
+function clearAuthorSearch() {
+  document.getElementById('author-search-input').value = '';
+  document.getElementById('search-summary').classList.add('hidden');
+  document.getElementById('search-results-col').classList.add('hidden');
+  document.getElementById('search-results-list').innerHTML = '';
+  highlightedAuthors = new Set();
+  searchActive = false;
+  renderTable();
+}
+
+/* ════════════════════════════════════════════
+   SORT / PAGINATION
+════════════════════════════════════════════ */
+function sortBy(key) {
+  sortDir = sortKey === key ? sortDir * -1 : 1;
+  sortKey = key;
+  renderTable();
+}
+function changePage(delta) {
+  const pages = Math.max(1, Math.ceil(COMMENTS_DATA.length / ROWS_PER_PAGE));
+  currentPage = Math.max(1, Math.min(currentPage + delta, pages));
+  renderTable();
+}
+
+/* ════════════════════════════════════════════
+   URL BAR
+════════════════════════════════════════════ */
+function extractYouTubeId(url) {
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+  return null;
+}
+
+function setUrlDot(state) {
+  const dot = document.getElementById('url-dot');
+  dot.className = 'url-status-dot shrink-0 ' + state;
+}
+function resetUrlState() {
+  const inp = document.getElementById('url-input');
+  inp.classList.remove('error','success');
+  setUrlDot('idle');
+  document.getElementById('url-clear-btn').classList.toggle('hidden', !inp.value.trim());
+}
+function clearUrl() {
+  document.getElementById('url-input').value = '';
+  resetUrlState();
+  document.getElementById('url-input').focus();
+}
+
+function setStatus(text, color) {
+  const el = document.getElementById('status-badge');
+  el.textContent = text;
+  el.style.cssText = `background:${color.bg};color:${color.fg};font-size:12px;padding:3px 12px;border-radius:999px;font-weight:600;`;
+}
+
+async function loadVideoFromUrl() {
+  const raw = document.getElementById('url-input').value.trim();
+  if (!raw) { document.getElementById('url-input').focus(); return; }
+  const key = getApiKey();
+  if (!key) { showToast('⚠️ Please enter your YouTube API key first.'); return; }
+
+  const videoId = extractYouTubeId(raw);
+  if (!videoId) {
+    document.getElementById('url-input').classList.add('error');
+    setUrlDot('err');
+    showToast('⚠️ Invalid YouTube URL.');
+    return;
+  }
+
+  setUrlDot('loading');
+  document.getElementById('url-input').classList.remove('error','success');
+  setStatus('Loading…', { bg:'#f5f3ff', fg:'#7c3aed' });
+
+  try {
+    // 1 — Fetch video metadata
+    const vRes  = await fetch(`${YT_API}/videos?part=snippet,statistics&id=${videoId}&key=${key}`);
+    const vData = await vRes.json();
+
+    if (!vData.items || vData.items.length === 0) {
+      throw new Error('Video not found. Check the URL or API key.');
+    }
+
+    const snippet = vData.items[0].snippet;
+    const stats   = vData.items[0].statistics;
+    channelId     = snippet.channelId;
+    currentVideoId = videoId;
+    nextPageToken  = null;
+    COMMENTS_DATA  = [];
+
+    // Update header UI
+    document.getElementById('video-title').textContent   = snippet.title;
+    document.getElementById('video-channel').textContent = snippet.channelTitle;
+    const thumb = document.getElementById('video-thumb-img');
+    const wrap  = document.getElementById('video-thumb-wrap');
+    thumb.src = snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '';
+    thumb.classList.remove('hidden');
+    const svg = wrap.querySelector('svg'); if (svg) svg.style.display = 'none';
+
+    document.getElementById('url-input').classList.add('success');
+    setUrlDot('ok');
+    setStatus('Ready', { bg:'#dcfce7', fg:'#15803d' });
+
+    // 2 — Fetch first batch of comments (without deep reply fetching)
+    await fetchComments(videoId, key, null, false);
+
+  } catch(e) {
+    setUrlDot('err');
+    document.getElementById('url-input').classList.add('error');
+    setStatus('Error', { bg:'#fee2e2', fg:'#dc2626' });
+    showToast('❌ ' + (e.message || 'Unknown error'));
+    console.error(e);
+  }
+}
+
+/* ════════════════════════════════════════════
+   FETCH COMMENTS  (real YouTube API)
+════════════════════════════════════════════ */
+/* ════════════════════════════════════════════
+   FETCH ALL REPLIES for a single thread
+════════════════════════════════════════════ */
+async function fetchAllReplies(parentId, key) {
+  const allReplies = [];
+  let token = null;
+  do {
+    let url = `${YT_API}/comments?part=snippet&parentId=${parentId}&maxResults=100&key=${key}`;
+    if (token) url += `&pageToken=${token}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    for (const rep of (data.items || [])) {
+      const rs = rep.snippet;
+      allReplies.push({
+        commentId:     rep.id,
+        authorName:    rs.authorDisplayName,
+        authorAvatar:  rs.authorProfileImageUrl,
+        authorChannel: rs.authorChannelId?.value || '—',
+        content:       rs.textDisplay,
+        likes:         rs.likeCount ?? 0,
+        replies:       0,
+        published:     rs.publishedAt,
+        isReply:       'Yes',
+        parentId:      rs.parentId,
+      });
+    }
+    token = data.nextPageToken || null;
+  } while (token);
+  return allReplies;
+}
+
+/* ════════════════════════════════════════════
+   FETCH ONE PAGE of top-level comments
+════════════════════════════════════════════ */
+async function fetchComments(videoId, key, pageToken, fetchReplies = false) {
+  isFetching = true;
+  setFetchingUI(true);
+
+  try {
+    let url = `${YT_API}/commentThreads?part=snippet,replies&videoId=${videoId}&maxResults=100&order=time&key=${key}`;
+    if (pageToken) url += `&pageToken=${pageToken}`;
+
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    nextPageToken = data.nextPageToken || null;
+    const rows = [];
+
+    for (const item of (data.items || [])) {
+      const tl      = item.snippet.topLevelComment.snippet;
+      const tlId    = item.snippet.topLevelComment.id;
+      const repCount = item.snippet.totalReplyCount ?? 0;
+
+      rows.push({
+        index:         0, // renumbered below
+        commentId:     tlId,
+        authorName:    tl.authorDisplayName,
+        authorAvatar:  tl.authorProfileImageUrl,
+        authorChannel: tl.authorChannelId?.value || '—',
+        content:       tl.textDisplay,
+        likes:         tl.likeCount ?? 0,
+        replies:       repCount,
+        published:     tl.publishedAt,
+        isReply:       'No',
+        parentId:      '—',
+      });
+
+      // Get replies: if >5 and fetchReplies mode → call comments API for full list
+      if (repCount > 0) {
+        let replyRows = [];
+        if (fetchReplies && repCount > (item.replies?.comments?.length ?? 0)) {
+          // Fetch ALL replies via separate API call
+          replyRows = await fetchAllReplies(tlId, key);
+        } else if (item.replies?.comments) {
+          // Use the partial list already returned
+          replyRows = item.replies.comments.map(rep => {
+            const rs = rep.snippet;
+            return {
+              commentId:     rep.id,
+              authorName:    rs.authorDisplayName,
+              authorAvatar:  rs.authorProfileImageUrl,
+              authorChannel: rs.authorChannelId?.value || '—',
+              content:       rs.textDisplay,
+              likes:         rs.likeCount ?? 0,
+              replies:       0,
+              published:     rs.publishedAt,
+              isReply:       'Yes',
+              parentId:      rs.parentId,
+            };
+          });
+        }
+        rows.push(...replyRows);
+      }
+    }
+
+    // Re-number all rows
+    COMMENTS_DATA.push(...rows);
+    COMMENTS_DATA.forEach((r, i) => r.index = i + 1);
+
+    currentPage = 1;
+    renderTable();
+    updateStatusAfterFetch(rows.length);
+
+  } catch(e) {
+    setStatus('Error', { bg:'#fee2e2', fg:'#dc2626' });
+    showToast('❌ ' + (e.message || 'API error'));
+    console.error(e);
+  } finally {
+    isFetching = false;
+    setFetchingUI(false);
+  }
+}
+
+function updateStatusAfterFetch(newRows) {
+  const done = !nextPageToken;
+  setStatus(
+    done ? `Done (✅ ${COMMENTS_DATA.length})` : `Paused — ${COMMENTS_DATA.length} loaded`,
+    done ? { bg:'#dcfce7', fg:'#15803d' } : { bg:'#fef9c3', fg:'#a16207' }
+  );
+  document.getElementById('resume-btn').disabled    = done;
+  document.getElementById('fetch-all-btn').disabled = done;
+  const prog = document.getElementById('fetch-progress');
+  if (done) { prog.classList.add('hidden'); }
+  showToast(`✅ +${newRows} rows — total: ${COMMENTS_DATA.length}${nextPageToken ? ' (more available)' : ' — all loaded!'}`);
+}
+
+function setFetchingUI(on) {
+  document.getElementById('url-load-btn').disabled = on;
+  const loadBtn = document.getElementById('url-load-btn');
+  loadBtn.innerHTML = on
+    ? `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="white" stroke-width="4"/><path class="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z"/></svg> Loading…`
+    : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg> Load`;
+}
+
+/* ════════════════════════════════════════════
+   RESUME — load next page manually
+════════════════════════════════════════════ */
+async function handleResume() {
+  if (!currentVideoId) { showToast('⚠️ Load a video URL first.'); return; }
+  if (!nextPageToken)  { showToast('ℹ️ All comments already loaded.'); return; }
+  if (isFetching)      return;
+  await fetchComments(currentVideoId, getApiKey(), nextPageToken, false);
+}
+
+/* ════════════════════════════════════════════
+   FETCH ALL — auto-loop all pages + all replies
+════════════════════════════════════════════ */
+async function handleFetchAll() {
+  if (!currentVideoId) { showToast('⚠️ Load a video URL first.'); return; }
+  if (!nextPageToken && COMMENTS_DATA.length > 0) { showToast('ℹ️ All comments already loaded.'); return; }
+  if (isFetching) return;
+
+  const key  = getApiKey();
+  const prog = document.getElementById('fetch-progress');
+  prog.classList.remove('hidden');
+
+  document.getElementById('fetch-all-btn').disabled = true;
+  document.getElementById('resume-btn').disabled    = true;
+
+  isFetching = true;
+  setFetchingUI(true);
+
+  try {
+    let token = nextPageToken || null;
+    // If nothing loaded yet, start from scratch
+    if (COMMENTS_DATA.length === 0) token = null;
+
+    do {
+      prog.textContent = `Fetching… ${COMMENTS_DATA.length} so far`;
+
+      let url = `${YT_API}/commentThreads?part=snippet,replies&videoId=${currentVideoId}&maxResults=100&order=time&key=${key}`;
+      if (token) url += `&pageToken=${token}`;
+
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+
+      token = data.nextPageToken || null;
+      nextPageToken = token;
+
+      const rows = [];
+      for (const item of (data.items || [])) {
+        const tl       = item.snippet.topLevelComment.snippet;
+        const tlId     = item.snippet.topLevelComment.id;
+        const repCount = item.snippet.totalReplyCount ?? 0;
+
+        rows.push({
+          index:         0,
+          commentId:     tlId,
+          authorName:    tl.authorDisplayName,
+          authorAvatar:  tl.authorProfileImageUrl,
+          authorChannel: tl.authorChannelId?.value || '—',
+          content:       tl.textDisplay,
+          likes:         tl.likeCount ?? 0,
+          replies:       repCount,
+          published:     tl.publishedAt,
+          isReply:       'No',
+          parentId:      '—',
+        });
+
+        if (repCount > 0) {
+          // Always fetch ALL replies completely
+          const partial = item.replies?.comments ?? [];
+          let replyRows;
+          if (repCount > partial.length) {
+            prog.textContent = `Fetching replies for thread… (${COMMENTS_DATA.length + rows.length} rows)`;
+            replyRows = await fetchAllReplies(tlId, key);
+          } else {
+            replyRows = partial.map(rep => {
+              const rs = rep.snippet;
+              return {
+                commentId:     rep.id,
+                authorName:    rs.authorDisplayName,
+                authorAvatar:  rs.authorProfileImageUrl,
+                authorChannel: rs.authorChannelId?.value || '—',
+                content:       rs.textDisplay,
+                likes:         rs.likeCount ?? 0,
+                replies:       0,
+                published:     rs.publishedAt,
+                isReply:       'Yes',
+                parentId:      rs.parentId,
+              };
+            });
+          }
+          rows.push(...replyRows);
+        }
+      }
+
+      COMMENTS_DATA.push(...rows);
+      COMMENTS_DATA.forEach((r, i) => r.index = i + 1);
+      renderTable();
+
+      // Small delay to avoid quota hammering
+      if (token) await new Promise(r => setTimeout(r, 300));
+
+    } while (token);
+
+    prog.classList.add('hidden');
+    setStatus(`Done (✅ ${COMMENTS_DATA.length})`, { bg:'#dcfce7', fg:'#15803d' });
+    document.getElementById('resume-btn').disabled    = true;
+    document.getElementById('fetch-all-btn').disabled = true;
+    showToast(`🎉 All done! ${COMMENTS_DATA.length} total rows`);
+
+  } catch(e) {
+    prog.textContent = 'Error!';
+    setStatus('Error', { bg:'#fee2e2', fg:'#dc2626' });
+    showToast('❌ ' + (e.message || 'API error'));
+    console.error(e);
+  } finally {
+    isFetching = false;
+    setFetchingUI(false);
+  }
+}
+
+/* ════════════════════════════════════════════
+   MODAL — Configure Columns
+════════════════════════════════════════════ */
+function openModal() {
+  modalColumns = [...activeColumns];
+  renderModalList();
+  renderAddDropdown();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+function renderModalList() {
+  const list  = document.getElementById('modal-col-list');
+  const noMsg = document.getElementById('no-cols-msg');
+  if (!modalColumns.length) { list.innerHTML = ''; noMsg.classList.remove('hidden'); return; }
+  noMsg.classList.add('hidden');
+  list.innerHTML = modalColumns.map(key => {
+    const col = ALL_COLUMNS.find(c => c.key === key);
+    return `<div class="col-tag"><div class="flex items-center gap-2"><span class="text-slate-400 text-xs">⠿</span><span class="text-sm font-medium text-slate-700">${col ? col.label : key}</span></div><button onclick="removeColFromModal('${key}')" class="text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors">Remove</button></div>`;
+  }).join('');
+}
+function renderAddDropdown() {
+  const sel   = document.getElementById('add-col-select');
+  const avail = ALL_COLUMNS.filter(c => !modalColumns.includes(c.key));
+  sel.innerHTML = avail.length
+    ? avail.map(c => `<option value="${c.key}">${c.label}</option>`).join('')
+    : '<option value="">— All columns added —</option>';
+}
+function addColumnFromModal() {
+  const v = document.getElementById('add-col-select').value;
+  if (!v || modalColumns.includes(v)) return;
+  modalColumns.push(v);
+  renderModalList(); renderAddDropdown();
+}
+function removeColFromModal(key) {
+  modalColumns = modalColumns.filter(k => k !== key);
+  renderModalList(); renderAddDropdown();
+}
+function saveColumns() {
+  activeColumns = [...modalColumns];
+  closeModal(); renderTable();
+  showToast('Columns updated.');
+}
+
+/* ════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════ */
+function switchTab(tab, e) {
+  e.preventDefault();
+  ['comments','history'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('hidden', t !== tab);
+    document.getElementById('nav-'+t).classList.toggle('active', t === tab);
+  });
+}
+
+/* ════════════════════════════════════════════
+   EXPORT CSV
+════════════════════════════════════════════ */
+function exportCSV() {
+  if (!COMMENTS_DATA.length) { showToast('⚠️ No comments to export.'); return; }
+  const header = activeColumns.map(k => ALL_COLUMNS.find(c=>c.key===k)?.label || k);
+  const rows   = COMMENTS_DATA.map(row =>
+    activeColumns.map(k => `"${String(row[k]??'').replace(/"/g,'""')}"`).join(',')
+  );
+  const csv  = [header.join(','), ...rows].join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a    = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:'comments_export.csv'});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast(`✅ Exported ${COMMENTS_DATA.length} rows.`);
+}
+
+/* ════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+let _tt = null;
+function showToast(msg, duration=3000) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.remove('opacity-0','translate-y-2');
+  t.classList.add('opacity-100','translate-y-0');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => { t.classList.add('opacity-0','translate-y-2'); t.classList.remove('opacity-100','translate-y-0'); }, duration);
+}
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+(function init() {
+  const saved = getApiKey();
+  if (saved) {
+    document.getElementById('api-key-input').value = saved;
+    const s = document.getElementById('api-key-status');
+    s.textContent = '✓ Key loaded';
+    s.classList.remove('hidden');
+    setTimeout(() => s.classList.add('hidden'), 2000);
+  }
+  document.getElementById('resume-btn').disabled    = true;
+  document.getElementById('fetch-all-btn').disabled = true;
+  renderTable();
+})();
+</script>
+</body>
+</html>
